@@ -307,6 +307,36 @@ func CastlingLegal(b Board, i int, direction int) bool {
 	return true
 }
 
+// RayDirection gets the direction from one square to another
+// or zero if they are not on the same line or diagonal.
+// Assumes from and to are distinct, valid squares.
+func RayDirection(from int, to int) int {
+	result := 0
+	if from&0xF0 == to&0xF0 {
+		if from&0x0F > to&0x0F {
+			return W
+		}
+		return E
+	} else if from&0x0F == to&0x0F {
+		if from&0xF0 > to&0xF0 {
+			return S
+		}
+		return N
+	} else if xdiff, ydiff := from&0x0F-to&0x0F, from&0xF0>>4-to&0xF0>>4; xdiff^2 == ydiff^2 {
+		if xdiff > 0 {
+			result += S
+		} else {
+			result += N
+		}
+		if ydiff > 0 {
+			result += W
+		} else {
+			result += E
+		}
+	}
+	return result
+}
+
 func NotationToSquareIndex(notation string) int {
 	return int((notation[0] - "a"[0]) + (notation[1]-"1"[0])*16)
 }

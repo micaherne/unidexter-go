@@ -58,9 +58,9 @@ func TestGenerateMoves(t *testing.T) {
 		t.Errorf("Initial position with black to move should return 20 moves, not %d", len(m))
 	}
 
-	b = FromFEN("7r/8/8/8/8/P7/8/4K2R w K - 0 1")
+	b = FromFEN("7r/8/8/8/8/P7/8/R3K2R w KQ - 0 1")
 	m = GeneratePieceMoves(b, 4)
-	if len(m) != 6 {
+	if len(m) != 7 {
 		t.Errorf("Castling should be allowed", m)
 	}
 	m = GeneratePieceMoves(b, 32)
@@ -73,6 +73,56 @@ func TestGenerateMoves(t *testing.T) {
 		t.Errorf("Rook should have 9 moves, not %d", len(m))
 	}
 
+	m = GeneratePieceMoves(b, 0x11)
+	if len(m) != 0 {
+		t.Errorf("Invalid piece should return 0 moves")
+	}
+
+}
+
+func TestRayDirection(t *testing.T) {
+	r1 := RayDirection(0x00, 0x77)
+	if r1 != NE {
+		t.Errorf("a1 to h8 should be NE not %d", r1)
+	}
+	r2 := RayDirection(0x00, 0x07)
+	if r2 != E {
+		t.Errorf("a1 to h1 should be E not %d", r2)
+	}
+	r3 := RayDirection(0x07, 0x00)
+	if r3 != W {
+		t.Errorf("a8 to a1 should be W not %d", r3)
+	}
+	r4 := RayDirection(0x00, 0x12)
+	if r4 != 0 {
+		t.Errorf("a1 to b3 should return zero not %d", r4)
+	}
+	// Check that all returned values are correct.
+	for from := 0; from < 128; from++ {
+		if !LegalSquareIndex(from) {
+			continue
+		}
+	ToLoop:
+		for to := 0; to < 128; to++ {
+			if !LegalSquareIndex(to) {
+				continue
+			}
+			if from == to {
+				continue
+			}
+			r := RayDirection(from, to)
+			if r == 0 {
+				continue
+			}
+			for i := 1; i < 8; i++ {
+				if from+(i*r) == to {
+					continue ToLoop
+				}
+			}
+			t.Errorf("Can't get from %X to %X in direction %d", from, to, r)
+			break
+		}
+	}
 }
 
 func TestNotationToSquareIndex(t *testing.T) {
