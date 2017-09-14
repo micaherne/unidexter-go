@@ -1,6 +1,7 @@
 package board
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
@@ -54,6 +55,10 @@ type Board struct {
 	whiteToMove bool
 	castling    int // KQkq
 	ep          int
+	blackKing   int
+	whiteKing   int
+	halfMove    int
+	moveHistory []MoveUndo
 }
 
 func GetPieceType(p int) int {
@@ -96,7 +101,14 @@ func FromFEN(fen string) Board {
 			if n, err := strconv.Atoi(string(char)); err == nil {
 				file += n
 			} else {
-				b.squares[(7-rank)*16+file] = PieceFromNotation(char)
+				piece := PieceFromNotation(char)
+				square := (7-rank)*16 + file
+				b.squares[square] = piece
+				if piece == WHITE|KING {
+					b.whiteKing = square
+				} else if piece == BLACK|KING {
+					b.blackKing = square
+				}
 				file++
 			}
 		}
@@ -275,6 +287,35 @@ func GeneratePawnSlides(b Board, i int, offset int) []Move {
 	return result
 }
 
+func MakeMove(b *Board, move Move) {
+	undo := MoveUndo{
+		from:     move.from,
+		to:       move.to,
+		captured: b.squares[move.to],
+		ep:       b.ep,
+		halfMove: b.halfMove,
+		castling: b.castling,
+	}
+	b.moveHistory = append(b.moveHistory, undo)
+
+	movedPiece := GetPieceType(b.squares[move.from])
+
+	if movedPiece == PAWN && move.to == b.ep && (move.to&0x0F != move.from&0x0F) {
+		// TODO: e.p.
+	} else if movedPiece == KING {
+		if offset := move.from - move.to; offset == 2 || offset == -2 {
+			// TODO: Castling
+		}
+	} else {
+		b.squares[move.to] = b.squares[move.from]
+		fmt.Println("%d ", b.squares[move.to])
+		b.squares[move.from] = EMPTY
+	}
+
+	b.whiteToMove = !b.whiteToMove
+
+}
+
 func LegalSquareIndex(i int) bool {
 	return i >= 0 && i&0x88 == 0
 }
@@ -305,6 +346,74 @@ func CastlingLegal(b Board, i int, direction int) bool {
 	}
 	// TODO: Check attacks on intermediate squares
 	return true
+}
+
+// IsCheck tests whether the given colour is in check.
+func IsCheck(b Board, colour int) bool {
+	var opponentColour, kingPosition int
+	var pawnAttacks []int
+	if colour == WHITE {
+		opponentColour = BLACK
+		kingPosition = b.whiteKing
+		pawnAttacks = SDIAGONALS
+	} else { // Assume calling code is correct to avoid extra if
+		opponentColour = WHITE
+		kingPosition = b.blackKing
+		pawnAttacks = NDIAGONALS
+	}
+
+	// Knights
+	for _, knightMove := range KNIGHTMOVES {
+		square := kingPosition - knightMove
+		if LegalSquareIndex(square) && b.squares[square] == opponentColour|KNIGHT {
+			return true
+		}
+	}
+
+	// Pawns
+	for _, pawnMove := range pawnAttacks {
+		square := kingPosition - pawnMove
+		if LegalSquareIndex(square) && b.squares[square] == opponentColour|PAWN {
+			return true
+		}
+	}
+
+	// Rays
+	for _, dir := range DIAGONALS {
+		for i := 1; i < 8; i++ {
+			square := kingPosition - (i * dir)
+			if !LegalSquareIndex(square) {
+				break
+			}
+			if b.squares[square] != EMPTY {
+				if b.squares[square] == opponentColour|BISHOP {
+					return true
+				}
+				if b.squares[square] == opponentColour|QUEEN {
+					return true
+				}
+				break
+			}
+		}
+	}
+	for _, dir := range LINES {
+		for i := 1; i < 8; i++ {
+			square := kingPosition - (i * dir)
+			if !LegalSquareIndex(square) {
+				break
+			}
+			if b.squares[square] != EMPTY {
+				if b.squares[square] == opponentColour|ROOK {
+					return true
+				}
+				if b.squares[square] == opponentColour|QUEEN {
+					return true
+				}
+				break
+			}
+		}
+	}
+	return false
 }
 
 // RayDirection gets the direction from one square to another

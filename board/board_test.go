@@ -80,6 +80,70 @@ func TestGenerateMoves(t *testing.T) {
 
 }
 
+func TestMakeMove(t *testing.T) {
+	b := FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	move := Move{0x14, 0x34}
+
+	MakeMove(&b, move)
+
+	if b.whiteToMove {
+		t.Errorf("Should be black to move")
+	}
+
+	if b.squares[0x34] != WHITE|PAWN {
+		t.Errorf("e4 should be white pawn")
+	}
+	if b.squares[0x14] != EMPTY {
+		t.Errorf("e2 should be empty")
+	}
+}
+
+func TestIsCheck(t *testing.T) {
+	checkPositions := []string{
+		"3rk3/8/8/8/8/8/8/3K4 w - -",
+		"4k3/8/8/8/8/4n3/8/3K4 w - -",
+		"4k3/8/8/7b/8/8/8/3K4 w - -",
+		"4k3/8/8/8/q7/8/8/3K4 w - -",
+		"4k3/8/8/8/8/8/4p3/3K4 w - -",
+	}
+	for i, pos := range checkPositions {
+		b := FromFEN(pos)
+		if !IsCheck(b, WHITE) {
+			t.Errorf("White king should be in check in position %d", i)
+		}
+	}
+	nonCheckPositions := []string{
+		"4k3/8/8/8/8/4p3/8/3K4 w - -",
+		"4k3/8/8/8/8/8/8/3KR3 w - -",
+	}
+	for i, pos := range nonCheckPositions {
+		b := FromFEN(pos)
+		if IsCheck(b, WHITE) {
+			t.Errorf("White king should not be in check in position %d", i)
+		}
+	}
+	blackCheckPositions := []string{
+		"4k3/8/8/8/8/8/8/3KR3 w - -",
+		"2Q1k3/4n3/8/8/8/8/8/3KR3 w - -",
+	}
+	for i, pos := range blackCheckPositions {
+		b := FromFEN(pos)
+		if !IsCheck(b, BLACK) {
+			t.Errorf("Black king should be in check in position %d", i)
+		}
+	}
+	blackNonCheckPositions := []string{
+		"4k3/4n3/8/8/8/8/8/3KR3 w - -",
+		"4k3/3nn3/8/8/8/8/8/3KR3 w - -",
+	}
+	for i, pos := range blackNonCheckPositions {
+		b := FromFEN(pos)
+		if IsCheck(b, BLACK) {
+			t.Errorf("Black king should not be in check in position %d", i)
+		}
+	}
+}
+
 func TestRayDirection(t *testing.T) {
 	r1 := RayDirection(0x00, 0x77)
 	if r1 != NE {
