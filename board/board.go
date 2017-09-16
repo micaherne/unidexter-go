@@ -95,7 +95,7 @@ func PieceFromNotation(symbol rune) int {
 	return result
 }
 
-func FromFEN(fen string) Board {
+func FromFEN(fen string) *Board {
 	b := Board{}
 	fenParts := strings.Split(fen, " ")
 	boardParts := strings.Split(fenParts[0], "/")
@@ -139,7 +139,7 @@ func FromFEN(fen string) Board {
 		b.ep = NotationToSquareIndex(fenParts[3])
 	}
 
-	return b
+	return &b
 }
 
 type Move struct {
@@ -157,7 +157,7 @@ type MoveUndo struct {
 }
 
 // GenerateMoves generates pseudo-legal moves for the position given
-func GenerateMoves(b Board) []Move {
+func GenerateMoves(b *Board) []Move {
 	result := make([]Move, 0)
 	for i := 0; i < 128; i++ {
 		if b.squares[i] == EMPTY {
@@ -172,7 +172,7 @@ func GenerateMoves(b Board) []Move {
 	return result
 }
 
-func GeneratePieceMoves(b Board, i int) []Move {
+func GeneratePieceMoves(b *Board, i int) []Move {
 	piece := b.squares[i]
 	switch GetPieceType(piece) {
 	case PAWN:
@@ -212,7 +212,7 @@ func GeneratePieceMoves(b Board, i int) []Move {
 	return make([]Move, 0)
 }
 
-func GenerateSingleMoves(b Board, i int, offsets []int) []Move {
+func GenerateSingleMoves(b *Board, i int, offsets []int) []Move {
 	result := make([]Move, 0)
 	ownColour := GetColour(b.squares[i])
 	for _, offset := range offsets {
@@ -225,7 +225,7 @@ func GenerateSingleMoves(b Board, i int, offsets []int) []Move {
 	return result
 }
 
-func GenerateSlides(b Board, i int, offsets []int) []Move {
+func GenerateSlides(b *Board, i int, offsets []int) []Move {
 	result := make([]Move, 0)
 	ownColour := GetColour(b.squares[i])
 	for _, offset := range offsets {
@@ -243,7 +243,7 @@ func GenerateSlides(b Board, i int, offsets []int) []Move {
 	return result
 }
 
-func GeneratePawnMoves(b Board, i int, forward int, captureOffsets []int, onHomeRank bool) []Move {
+func GeneratePawnMoves(b *Board, i int, forward int, captureOffsets []int, onHomeRank bool) []Move {
 	ownColour := GetColour(b.squares[i])
 	var result []Move
 	if onHomeRank {
@@ -278,7 +278,7 @@ func GeneratePawnMoves(b Board, i int, forward int, captureOffsets []int, onHome
 // GeneratePawnSlides returns the valid non-capturing moves for
 // a pawn on the home rank. Behaviour is undefined for pawns on
 // any other rank.
-func GeneratePawnSlides(b Board, i int, offset int) []Move {
+func GeneratePawnSlides(b *Board, i int, offset int) []Move {
 	result := make([]Move, 0)
 	toSquare := i + offset
 	if b.squares[toSquare] == 0 {
@@ -292,6 +292,24 @@ func GeneratePawnSlides(b Board, i int, offset int) []Move {
 	return result
 }
 
+// LegalMove decides whether a pseudo-legal move is actually legal
+// i.e. does it result in the moving side being in check?
+// TODO: This is a very slow implementation - do static calculation
+func LegalMove(b *Board, move Move) bool {
+	colourMoving := ColourToMove(b)
+	MakeMove(b, move)
+	result := IsCheck(b, colourMoving)
+	UndoMove(b)
+	return result
+}
+
+func ColourToMove(b *Board) int {
+	if b.whiteToMove {
+		return WHITE
+	}
+	return BLACK
+}
+
 func MakeMove(b *Board, move Move) {
 	undo := MoveUndo{
 		from:     move.from,
@@ -301,7 +319,6 @@ func MakeMove(b *Board, move Move) {
 		halfMove: b.halfMove,
 		castling: b.castling,
 	}
-	b.moveHistory = append(b.moveHistory, undo)
 
 	movedPiece := GetPieceType(b.squares[move.from])
 
@@ -310,7 +327,7 @@ func MakeMove(b *Board, move Move) {
 		undo.captured = b.squares[capturedSquare]
 		b.squares[capturedSquare] = EMPTY
 	} else if movedPiece == KING {
-		if GetColour(movedPiece) == WHITE {
+		if GetColour(b.squares[move.from]) == WHITE {
 			b.whiteKing = move.to
 		} else {
 			b.blackKing = move.to
@@ -330,10 +347,52 @@ func MakeMove(b *Board, move Move) {
 		}
 	}
 
+	b.moveHistory = append(b.moveHistory, undo)
+
 	// Move the actual piece
 	b.squares[move.to] = b.squares[move.from]
 	b.squares[move.from] = EMPTY
 	b.whiteToMove = !b.whiteToMove
+}
+
+func UndoMove(b *Board) {
+	a := b.moveHistory
+	var lastMove MoveUndo
+	lastMove, b.moveHistory = a[len(a)-1], a[:len(a)-1]
+
+	b.squares[lastMove.from] = b.squares[lastMove.to]
+	b.squares[lastMove.to] = lastMove.captured
+
+	b.whiteToMove = !b.whiteToMove
+	b.ep = lastMove.ep
+	b.halfMove = lastMove.halfMove
+	b.castling = lastMove.castling
+
+	movedPiece := GetPieceType(b.squares[lastMove.from])
+
+	if movedPiece == PAWN && lastMove.to == lastMove.ep && (lastMove.to&0x0F != lastMove.from&0x0F) {
+		fmt.Println(lastMove)
+		capturedSquare := lastMove.from&0xF0 | lastMove.to&0x0F
+		b.squares[capturedSquare] = lastMove.captured
+		b.squares[lastMove.to] = EMPTY
+	} else if movedPiece == KING {
+		if GetColour(b.squares[lastMove.from]) == WHITE {
+			b.whiteKing = lastMove.from
+		} else {
+			b.blackKing = lastMove.from
+		}
+		offset := lastMove.to - lastMove.from
+
+		if offset == 2 { // Kingside castling
+			// Rook
+			b.squares[lastMove.to+1] = b.squares[lastMove.from+1]
+			b.squares[lastMove.from+1] = EMPTY
+		} else if offset == -2 { // Queenside castling
+			// Rook
+			b.squares[lastMove.to-2] = b.squares[lastMove.from-1]
+			b.squares[lastMove.from-2] = EMPTY
+		}
+	}
 }
 
 func LegalSquareIndex(i int) bool {
@@ -342,7 +401,7 @@ func LegalSquareIndex(i int) bool {
 
 // CastlingLegal checks that the correct squares are empty
 // and not attacked.
-func CastlingLegal(b Board, i int, direction int) bool {
+func CastlingLegal(b *Board, i int, direction int) bool {
 	var rookPosition int
 	switch direction {
 	case W:
@@ -380,7 +439,7 @@ func CastlingLegal(b Board, i int, direction int) bool {
 // IsAttacked determines whether the given square is attacked by
 // the given colour.
 // Note that for e.p. only the ep square returns true, not the attacked pawn's square
-func IsAttacked(b Board, square int, colour int) bool {
+func IsAttacked(b *Board, square int, colour int) bool {
 
 	var pawnAttacks []int
 	if colour == WHITE {
@@ -444,7 +503,7 @@ func IsAttacked(b Board, square int, colour int) bool {
 }
 
 // IsCheck tests whether the given colour is in check.
-func IsCheck(b Board, colour int) bool {
+func IsCheck(b *Board, colour int) bool {
 	var kingPosition int
 	var opponentColour int
 	if colour == WHITE {

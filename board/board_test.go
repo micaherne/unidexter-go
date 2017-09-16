@@ -1,6 +1,7 @@
 package board
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -23,6 +24,11 @@ func TestBoardFromFEN(t *testing.T) {
 	b2 := FromFEN("8/8/8/8/8/8/8/8 w KQkq c3 0 1")
 	if b2.ep != 0x22 {
 		t.Errorf("e.p. should be 0x22, not %X", b2.ep)
+	}
+
+	b3 := FromFEN("r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6")
+	if b3.ep != 0x53 {
+		t.Errorf("e.p. should be 0x53, not %X", b3.ep)
 	}
 }
 
@@ -97,7 +103,7 @@ func TestMakeMove(t *testing.T) {
 	b := FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 	move := Move{0x14, 0x34}
 
-	MakeMove(&b, move)
+	MakeMove(b, move)
 
 	if b.whiteToMove {
 		t.Errorf("Should be black to move")
@@ -114,7 +120,7 @@ func TestMakeMove(t *testing.T) {
 	b = FromFEN("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq -")
 	move = Move{0x04, 0x06}
 
-	MakeMove(&b, move)
+	MakeMove(b, move)
 
 	if b.squares[0x05] != WHITE|ROOK {
 		t.Errorf("f1 should be white rook after castling")
@@ -129,7 +135,7 @@ func TestMakeMove(t *testing.T) {
 	b = FromFEN("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq -")
 
 	move = Move{0x74, 0x76}
-	MakeMove(&b, move)
+	MakeMove(b, move)
 
 	if b.squares[0x75] != BLACK|ROOK {
 		t.Errorf("f8 should be black rook after castling")
@@ -146,7 +152,7 @@ func TestMakeMove(t *testing.T) {
 
 	move = Move{0x04, 0x02}
 
-	MakeMove(&b, move)
+	MakeMove(b, move)
 
 	if b.squares[0x03] != WHITE|ROOK {
 		t.Errorf("d1 should be white rook after castling")
@@ -156,6 +162,56 @@ func TestMakeMove(t *testing.T) {
 	}
 	if b.squares[0x00] != EMPTY {
 		t.Errorf("a1 should be empty after castling")
+	}
+
+	// e.p.
+	b = FromFEN("r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6")
+	move = Move{0x44, 0x53}
+	MakeMove(b, move)
+	if b.squares[0x53] != WHITE|PAWN {
+		t.Errorf("d6 should be a white pawn")
+	}
+	if b.squares[0x43] != EMPTY {
+		t.Errorf("d5 should be empty")
+	}
+	if b.moveHistory[0].captured != BLACK|PAWN {
+		t.Errorf("captured should be black pawn")
+	}
+
+}
+
+func TestUndoMove(t *testing.T) {
+	tests := map[string][]Move{
+		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1": []Move{
+			Move{0x14, 0x34},
+			Move{0x64, 0x44},
+		},
+		"r1bqk1nr/pppp1ppp/2n5/1Bb1p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq -": []Move{
+			Move{0x04, 0x06},
+		},
+		// e.p.
+		"r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6": []Move{
+			Move{0x44, 0x53},
+		},
+	}
+
+	for fen, moves := range tests {
+		a := FromFEN(fen)
+		b := FromFEN(fen)
+
+		for _, move := range moves {
+			MakeMove(b, move)
+		}
+
+		for i := 0; i < len(moves); i++ {
+			UndoMove(b)
+		}
+
+		// Can't use reflect.DeepEqual as moveHistory capacities are different
+		if fmt.Sprint(a) != fmt.Sprint(b) {
+			fmt.Println(a, b)
+			t.Error("Undo failed")
+		}
 	}
 
 }
