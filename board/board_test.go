@@ -96,6 +96,55 @@ func TestMakeMove(t *testing.T) {
 	if b.squares[0x14] != EMPTY {
 		t.Errorf("e2 should be empty")
 	}
+
+	// Castling king side
+	b = FromFEN("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq -")
+	move = Move{0x04, 0x06}
+
+	MakeMove(&b, move)
+
+	if b.squares[0x05] != WHITE|ROOK {
+		t.Errorf("f1 should be white rook after castling")
+	}
+	if b.squares[0x06] != WHITE|KING {
+		t.Errorf("g1 should be white king after castling")
+	}
+	if b.squares[0x07] != EMPTY {
+		t.Errorf("h1 should be empty after castling")
+	}
+
+	b = FromFEN("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq -")
+
+	move = Move{0x74, 0x76}
+	MakeMove(&b, move)
+
+	if b.squares[0x75] != BLACK|ROOK {
+		t.Errorf("f8 should be black rook after castling")
+	}
+	if b.squares[0x76] != BLACK|KING {
+		t.Errorf("g8 should be black king after castling")
+	}
+	if b.squares[0x77] != EMPTY {
+		t.Errorf("h8 should be empty after castling")
+	}
+
+	// Catling queens side
+	b = FromFEN("r3kbnr/pppb1ppp/2np4/4p3/4P2q/2NPBQ2/PPP2PPP/R3KBNR w KQkq -")
+
+	move = Move{0x04, 0x02}
+
+	MakeMove(&b, move)
+
+	if b.squares[0x03] != WHITE|ROOK {
+		t.Errorf("d1 should be white rook after castling")
+	}
+	if b.squares[0x02] != WHITE|KING {
+		t.Errorf("c1 should be white king after castling")
+	}
+	if b.squares[0x00] != EMPTY {
+		t.Errorf("a1 should be empty after castling")
+	}
+
 }
 
 func TestIsCheck(t *testing.T) {

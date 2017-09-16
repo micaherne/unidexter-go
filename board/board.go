@@ -1,7 +1,6 @@
 package board
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
@@ -152,6 +151,7 @@ type MoveUndo struct {
 	castling int
 }
 
+// GenerateMoves generates pseudo-legal moves for the position given
 func GenerateMoves(b Board) []Move {
 	result := make([]Move, 0)
 	for i := 0; i < 128; i++ {
@@ -301,19 +301,34 @@ func MakeMove(b *Board, move Move) {
 	movedPiece := GetPieceType(b.squares[move.from])
 
 	if movedPiece == PAWN && move.to == b.ep && (move.to&0x0F != move.from&0x0F) {
-		// TODO: e.p.
+		capturedSquare := move.from&0xF0 | move.to&0x0F
+		undo.captured = b.squares[capturedSquare]
+		b.squares[capturedSquare] = EMPTY
 	} else if movedPiece == KING {
-		if offset := move.from - move.to; offset == 2 || offset == -2 {
-			// TODO: Castling
+		if GetColour(movedPiece) == WHITE {
+			b.whiteKing = move.to
+		} else {
+			b.blackKing = move.to
 		}
-	} else {
-		b.squares[move.to] = b.squares[move.from]
-		fmt.Println("%d ", b.squares[move.to])
-		b.squares[move.from] = EMPTY
+		offset := move.to - move.from
+
+		if offset == 2 { // Kingside castling
+			// Rook
+			b.squares[move.from+1] = b.squares[move.to+1]
+			b.squares[move.to+1] = EMPTY
+			b.castling &= 0x03
+		} else if offset == -2 { // Queenside castling
+			// Rook
+			b.squares[move.from-1] = b.squares[move.to-2]
+			b.squares[move.to-2] = EMPTY
+			b.castling &= 0x0C
+		}
 	}
 
+	// Move the actual piece
+	b.squares[move.to] = b.squares[move.from]
+	b.squares[move.from] = EMPTY
 	b.whiteToMove = !b.whiteToMove
-
 }
 
 func LegalSquareIndex(i int) bool {
