@@ -1,6 +1,7 @@
 package board
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
@@ -66,6 +67,10 @@ func GetPieceType(p int) int {
 
 func GetColour(p int) int {
 	return p & WHITE
+}
+
+func GetOpponentColour(p int) int {
+	return p&WHITE ^ WHITE
 }
 
 func PieceFromNotation(symbol rune) int {
@@ -359,36 +364,43 @@ func CastlingLegal(b Board, i int, direction int) bool {
 			return false
 		}
 	}
-	// TODO: Check attacks on intermediate squares
+
+	// Check attacks on intermediate squares
+	colour := GetOpponentColour(b.squares[i])
+	if IsAttacked(b, i+direction, colour) {
+		fmt.Printf("here! %d %d", i+direction, colour)
+		return false
+	}
+	if IsAttacked(b, i+direction+direction, colour) {
+		return false
+	}
 	return true
 }
 
-// IsCheck tests whether the given colour is in check.
-func IsCheck(b Board, colour int) bool {
-	var opponentColour, kingPosition int
+// IsAttacked determines whether the given square is attacked by
+// the given colour.
+// Note that for e.p. only the ep square returns true, not the attacked pawn's square
+func IsAttacked(b Board, square int, colour int) bool {
+
 	var pawnAttacks []int
 	if colour == WHITE {
-		opponentColour = BLACK
-		kingPosition = b.whiteKing
-		pawnAttacks = SDIAGONALS
-	} else { // Assume calling code is correct to avoid extra if
-		opponentColour = WHITE
-		kingPosition = b.blackKing
 		pawnAttacks = NDIAGONALS
+	} else { // Assume calling code is correct to avoid extra if
+		pawnAttacks = SDIAGONALS
 	}
 
 	// Knights
 	for _, knightMove := range KNIGHTMOVES {
-		square := kingPosition - knightMove
-		if LegalSquareIndex(square) && b.squares[square] == opponentColour|KNIGHT {
+		testSquare := square - knightMove
+		if LegalSquareIndex(testSquare) && b.squares[testSquare] == colour|KNIGHT {
 			return true
 		}
 	}
 
 	// Pawns
 	for _, pawnMove := range pawnAttacks {
-		square := kingPosition - pawnMove
-		if LegalSquareIndex(square) && b.squares[square] == opponentColour|PAWN {
+		testSquare := square - pawnMove
+		if LegalSquareIndex(testSquare) && b.squares[testSquare] == colour|PAWN {
 			return true
 		}
 	}
@@ -396,15 +408,15 @@ func IsCheck(b Board, colour int) bool {
 	// Rays
 	for _, dir := range DIAGONALS {
 		for i := 1; i < 8; i++ {
-			square := kingPosition - (i * dir)
-			if !LegalSquareIndex(square) {
+			testSquare := square - (i * dir)
+			if !LegalSquareIndex(testSquare) {
 				break
 			}
-			if b.squares[square] != EMPTY {
-				if b.squares[square] == opponentColour|BISHOP {
+			if b.squares[testSquare] != EMPTY {
+				if b.squares[testSquare] == colour|BISHOP {
 					return true
 				}
-				if b.squares[square] == opponentColour|QUEEN {
+				if b.squares[testSquare] == colour|QUEEN {
 					return true
 				}
 				break
@@ -413,15 +425,15 @@ func IsCheck(b Board, colour int) bool {
 	}
 	for _, dir := range LINES {
 		for i := 1; i < 8; i++ {
-			square := kingPosition - (i * dir)
-			if !LegalSquareIndex(square) {
+			testSquare := square - (i * dir)
+			if !LegalSquareIndex(testSquare) {
 				break
 			}
-			if b.squares[square] != EMPTY {
-				if b.squares[square] == opponentColour|ROOK {
+			if b.squares[testSquare] != EMPTY {
+				if b.squares[testSquare] == colour|ROOK {
 					return true
 				}
-				if b.squares[square] == opponentColour|QUEEN {
+				if b.squares[testSquare] == colour|QUEEN {
 					return true
 				}
 				break
@@ -429,6 +441,20 @@ func IsCheck(b Board, colour int) bool {
 		}
 	}
 	return false
+}
+
+// IsCheck tests whether the given colour is in check.
+func IsCheck(b Board, colour int) bool {
+	var kingPosition int
+	var opponentColour int
+	if colour == WHITE {
+		kingPosition = b.whiteKing
+		opponentColour = BLACK
+	} else { // Assume calling code is correct to avoid extra if
+		kingPosition = b.blackKing
+		opponentColour = WHITE
+	}
+	return IsAttacked(b, kingPosition, opponentColour)
 }
 
 // RayDirection gets the direction from one square to another

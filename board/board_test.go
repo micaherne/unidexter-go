@@ -31,8 +31,21 @@ func TestGetPieceType(t *testing.T) {
 	if pt := GetPieceType(p); pt != KNIGHT {
 		t.Error("Piece should be a knight")
 	}
-	if pt := GetColour(p); pt != WHITE {
+	if c := GetColour(p); c != WHITE {
 		t.Error("Piece should be white")
+	}
+	if oc := GetOpponentColour(p); oc != BLACK {
+		t.Error("Opponent should be black")
+	}
+	p = BLACK | PAWN
+	if pt := GetPieceType(p); pt != PAWN {
+		t.Error("Piece should be a pawnt")
+	}
+	if c := GetColour(p); c != BLACK {
+		t.Error("Piece should be black")
+	}
+	if oc := GetOpponentColour(p); oc != WHITE {
+		t.Error("Opponent should be white")
 	}
 }
 
@@ -145,6 +158,16 @@ func TestMakeMove(t *testing.T) {
 		t.Errorf("a1 should be empty after castling")
 	}
 
+}
+
+func TestIsAttacked(t *testing.T) {
+	b := FromFEN("7r/8/8/8/8/P7/8/R3K2R w KQ - 0 1")
+	if IsAttacked(b, 0x03, BLACK) {
+		t.Error("a4 is not attacked by black")
+	}
+	if !IsAttacked(b, 0x07, BLACK) {
+		t.Error("h1 is attacked by black")
+	}
 }
 
 func TestIsCheck(t *testing.T) {
