@@ -8,7 +8,7 @@ import (
 func TestBoardFromFEN(t *testing.T) {
 	b := FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 	if b.squares[0] != WHITE|ROOK {
-		t.Error("Piece 0 should be white rook, not %s", GetPieceType(b.squares[0]))
+		t.Errorf("Piece 0 should be white rook, not %d", GetPieceType(b.squares[0]))
 	}
 	if !b.whiteToMove {
 		t.Error("Should be white to move")
@@ -57,7 +57,7 @@ func TestGetPieceType(t *testing.T) {
 
 func TestPieceFromNotation(t *testing.T) {
 	if p := PieceFromNotation('n'); p != BLACK|KNIGHT {
-		t.Error("n should be a black knight not %d", p)
+		t.Errorf("n should be a black knight not %d", p)
 	}
 	if p := PieceFromNotation('R'); p != 8+ROOK {
 		t.Error("R should be a white rook")
@@ -80,7 +80,7 @@ func TestGenerateMoves(t *testing.T) {
 	b = FromFEN("7r/8/8/8/8/P7/8/R3K2R w KQ - 0 1")
 	m = GeneratePieceMoves(b, 4)
 	if len(m) != 7 {
-		t.Errorf("Castling should be allowed", m)
+		t.Errorf("Castling should be allowed: %X", m)
 	}
 	m = GeneratePieceMoves(b, 32)
 	if len(m) != 1 {
@@ -96,6 +96,11 @@ func TestGenerateMoves(t *testing.T) {
 	if len(m) != 0 {
 		t.Errorf("Invalid piece should return 0 moves")
 	}
+
+	// "Kiwipete" perft position
+	b = FromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
+	m = GeneratePieceMoves(b, 0x10)
+	fmt.Println(m)
 
 }
 
@@ -176,6 +181,32 @@ func TestMakeMove(t *testing.T) {
 	}
 	if b.moveHistory[0].captured != BLACK|PAWN {
 		t.Errorf("captured should be black pawn")
+	}
+
+	// castling
+	// white
+	correct := map[Move]int{
+		{0x00, 0x10}: 0x0B,
+		{0x07, 0x37}: 0x07,
+	}
+	for move, castling := range correct {
+		b = FromFEN("r3k2r/8/8/8/8/8/8/R3K2R w KQkq -")
+		MakeMove(b, move)
+		if b.castling != castling {
+			t.Errorf("Castling after %s should be %b, not %b", move, castling, b.castling)
+		}
+	}
+	// black
+	correct = map[Move]int{
+		{0x70, 0x60}: 0x0E,
+		{0x77, 0x37}: 0x0D,
+	}
+	for move, castling := range correct {
+		b = FromFEN("r3k2r/8/8/8/8/8/8/R3K2R b KQkq -")
+		MakeMove(b, move)
+		if b.castling != castling {
+			t.Errorf("Castling after %s should be %b, not %b", move, castling, b.castling)
+		}
 	}
 
 }
@@ -332,4 +363,16 @@ func TestNotationToSquareIndex(t *testing.T) {
 		}
 	}
 
+}
+
+func TestSquareIndexToNotation(t *testing.T) {
+	correct := map[int]string{
+		0x00: "a1",
+		0x01: "b1",
+	}
+	for square, name := range correct {
+		if n := SquareIndexToNotation(square); n != name {
+			t.Errorf("Name of %X should be %s, not %s", square, name, n)
+		}
+	}
 }

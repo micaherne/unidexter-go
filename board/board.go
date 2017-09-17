@@ -1,6 +1,7 @@
 package board
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -60,6 +61,26 @@ type Board struct {
 	halfMove    int
 	moveHistory []MoveUndo
 }
+
+type Move struct {
+	from int
+	to   int
+}
+
+type MoveUndo struct {
+	from     int
+	to       int
+	captured int
+	ep       int
+	halfMove int
+	castling int
+}
+
+func (m Move) String() string {
+	return SquareIndexToNotation(m.from) + SquareIndexToNotation(m.to)
+}
+
+const InitialPositionFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 func GetPieceType(p int) int {
 	return p & 7
@@ -140,20 +161,6 @@ func FromFEN(fen string) *Board {
 	}
 
 	return &b
-}
-
-type Move struct {
-	from int
-	to   int
-}
-
-type MoveUndo struct {
-	from     int
-	to       int
-	captured int
-	ep       int
-	halfMove int
-	castling int
 }
 
 // GenerateMoves generates pseudo-legal moves for the position given
@@ -283,7 +290,7 @@ func GeneratePawnSlides(b *Board, i int, offset int) []Move {
 	toSquare := i + offset
 	if b.squares[toSquare] == 0 {
 		result = append(result, Move{i, toSquare})
-		toSquare := i + offset
+		toSquare += offset
 		if b.squares[toSquare] == 0 {
 			result = append(result, Move{i, toSquare})
 		}
@@ -298,7 +305,7 @@ func GeneratePawnSlides(b *Board, i int, offset int) []Move {
 func LegalMove(b *Board, move Move) bool {
 	colourMoving := ColourToMove(b)
 	MakeMove(b, move)
-	result := IsCheck(b, colourMoving)
+	result := !IsCheck(b, colourMoving)
 	UndoMove(b)
 	return result
 }
@@ -329,8 +336,10 @@ func MakeMove(b *Board, move Move) {
 	} else if movedPiece == KING {
 		if GetColour(b.squares[move.from]) == WHITE {
 			b.whiteKing = move.to
+			b.castling &= 0x0C
 		} else {
 			b.blackKing = move.to
+			b.castling &= 0x03
 		}
 		offset := move.to - move.from
 
@@ -338,13 +347,28 @@ func MakeMove(b *Board, move Move) {
 			// Rook
 			b.squares[move.from+1] = b.squares[move.to+1]
 			b.squares[move.to+1] = EMPTY
-			b.castling &= 0x03
 		} else if offset == -2 { // Queenside castling
 			// Rook
 			b.squares[move.from-1] = b.squares[move.to-2]
 			b.squares[move.to-2] = EMPTY
-			b.castling &= 0x0C
 		}
+	} else if movedPiece == ROOK {
+		if b.whiteToMove {
+			if move.from == 0x00 && b.castling&0x04 == 0x04 {
+				b.castling &= ^0x04
+			}
+			if move.from == 0x07 && b.castling&0x08 == 0x08 {
+				b.castling &= ^0x08
+			}
+		} else {
+			if move.from == 0x70 && b.castling&0x01 == 0x01 {
+				b.castling &= ^0x01
+			}
+			if move.from == 0x77 && b.castling&0x02 == 0x02 {
+				b.castling &= ^0x02
+			}
+		}
+
 	}
 
 	b.moveHistory = append(b.moveHistory, undo)
@@ -427,7 +451,6 @@ func CastlingLegal(b *Board, i int, direction int) bool {
 	// Check attacks on intermediate squares
 	colour := GetOpponentColour(b.squares[i])
 	if IsAttacked(b, i+direction, colour) {
-		fmt.Printf("here! %d %d", i+direction, colour)
 		return false
 	}
 	if IsAttacked(b, i+direction+direction, colour) {
@@ -548,4 +571,50 @@ func RayDirection(from int, to int) int {
 
 func NotationToSquareIndex(notation string) int {
 	return int((notation[0] - "a"[0]) + (notation[1]-"1"[0])*16)
+}
+
+func SquareIndexToNotation(square int) string {
+	return string(byte(square&0x0F)+"a"[0]) + string(byte(square&0xF0>>4)+"1"[0])
+}
+
+func (b *Board) String() string {
+	result := bytes.Buffer{}
+	separator := strings.Repeat("+-", 8) + "+\n"
+	for rankStart := 0x70; rankStart >= 0; rankStart -= 16 {
+
+		result.Write([]byte(separator + "|"))
+
+		for squareIndex := rankStart; squareIndex < rankStart+8; squareIndex++ {
+			colour := GetColour(b.squares[squareIndex])
+			pieceType := GetPieceType(b.squares[squareIndex])
+			notation := " "
+			switch pieceType {
+			case PAWN:
+				notation = "p"
+			case KNIGHT:
+				notation = "n"
+			case BISHOP:
+				notation = "b"
+			case ROOK:
+				notation = "r"
+			case QUEEN:
+				notation = "q"
+			case KING:
+				notation = "k"
+			}
+			if colour == WHITE {
+				notation = strings.ToUpper(notation)
+			}
+			notation += "|"
+			result.Write([]byte(notation))
+		}
+
+		result.Write([]byte("\n"))
+	}
+
+	result.Write([]byte(separator))
+
+	otherStuff := fmt.Sprintf("White to move?: %t\nCastling (KQkq): %b\nEn passent: %d\nHalf move: %d", b.whiteToMove, b.castling, b.ep, b.halfMove)
+	result.Write([]byte(otherStuff))
+	return result.String()
 }
