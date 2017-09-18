@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestBoardFromFEN(t *testing.T) {
+func TestFromFEN(t *testing.T) {
 	b := FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 	if b.squares[0] != WHITE|ROOK {
 		t.Errorf("Piece 0 should be white rook, not %d", GetPieceType(b.squares[0]))
@@ -19,6 +19,12 @@ func TestBoardFromFEN(t *testing.T) {
 	if b.ep != -1 {
 		t.Errorf("e.p. square should be -1, not %d", b.ep)
 	}
+	if b.halfMove != 0 {
+		t.Errorf("halfMove should be 0, not %d", b.halfMove)
+	}
+	if b.fullMove != 1 {
+		t.Errorf("fullMove should be 1, not %d", b.fullMove)
+	}
 
 	// Test e.p.
 	b2 := FromFEN("8/8/8/8/8/8/8/8 w KQkq c3 0 1")
@@ -29,6 +35,20 @@ func TestBoardFromFEN(t *testing.T) {
 	b3 := FromFEN("r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6")
 	if b3.ep != 0x53 {
 		t.Errorf("e.p. should be 0x53, not %X", b3.ep)
+	}
+}
+
+func TestToFEN(t *testing.T) {
+	fens := []string{
+		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+		"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", // kiwipete
+		"r3k2r/p1ppqpb1/bn2Pnp1/4N3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1",  // kiwipete + d5d6
+	}
+	for i, fen := range fens {
+		b := FromFEN(fen)
+		if fenOut := ToFEN(b); fenOut != fen {
+			t.Errorf("Test %d. %s\ndoes not equal\n%s", i, fen, fenOut)
+		}
 	}
 }
 

@@ -58,6 +58,7 @@ type Board struct {
 	ep          int
 	blackKing   int
 	whiteKing   int
+	fullMove    int
 	halfMove    int
 	moveHistory []MoveUndo
 }
@@ -116,6 +117,30 @@ func PieceFromNotation(symbol rune) int {
 	return result
 }
 
+func PieceToNotation(piece int) string {
+	notation := "*"
+	colour := GetColour(piece)
+	pieceType := GetPieceType(piece)
+	switch pieceType {
+	case PAWN:
+		notation = "p"
+	case KNIGHT:
+		notation = "n"
+	case BISHOP:
+		notation = "b"
+	case ROOK:
+		notation = "r"
+	case QUEEN:
+		notation = "q"
+	case KING:
+		notation = "k"
+	}
+	if colour == WHITE {
+		notation = strings.ToUpper(notation)
+	}
+	return notation
+}
+
 func FromFEN(fen string) *Board {
 	b := Board{}
 	fenParts := strings.Split(fen, " ")
@@ -160,7 +185,71 @@ func FromFEN(fen string) *Board {
 		b.ep = NotationToSquareIndex(fenParts[3])
 	}
 
+	if len(fenParts) > 4 {
+		if halfMove, err := strconv.Atoi(fenParts[4]); err == nil {
+			b.halfMove = halfMove
+		}
+	} else {
+		b.halfMove = 0
+	}
+
+	if len(fenParts) > 5 {
+		if fullMove, err := strconv.Atoi(fenParts[5]); err == nil {
+			b.fullMove = fullMove
+		}
+	} else {
+		b.fullMove = 1
+	}
+
 	return &b
+}
+
+func ToFEN(b *Board) string {
+	var result bytes.Buffer
+	for rankStart := 0x70; rankStart >= 0; rankStart -= 16 {
+		empties := 0
+		for i := 0; i < 8; i++ {
+			square := rankStart + i
+			if b.squares[square] == EMPTY {
+				empties++
+				continue
+			}
+			if empties > 0 {
+				result.WriteString(strconv.Itoa(empties))
+				empties = 0
+			}
+			result.WriteString(PieceToNotation(b.squares[square]))
+		}
+		if empties > 0 {
+			result.WriteString(strconv.Itoa(empties))
+		}
+		if rankStart > 0 {
+			result.WriteString("/")
+		}
+	}
+
+	result.WriteString(" ")
+	if b.whiteToMove {
+		result.WriteString("w")
+	} else {
+		result.WriteString("b")
+	}
+	result.WriteString(" ")
+	for i, symbol := range []rune{'K', 'Q', 'k', 'q'} {
+		if b.castling&(1<<uint(3-i)) > 0 {
+			result.WriteRune(symbol)
+		}
+	}
+	result.WriteString(" ")
+	if b.ep > 0 {
+		result.WriteString(SquareIndexToNotation(b.ep))
+	} else {
+		result.WriteString("-")
+	}
+	result.WriteString(" ")
+	result.WriteString(fmt.Sprintf("%d %d", b.halfMove, b.fullMove))
+
+	return result.String()
 }
 
 // GenerateMoves generates pseudo-legal moves for the position given
@@ -595,26 +684,9 @@ func (b *Board) String() string {
 		result.Write([]byte(separator + "|"))
 
 		for squareIndex := rankStart; squareIndex < rankStart+8; squareIndex++ {
-			colour := GetColour(b.squares[squareIndex])
-			pieceType := GetPieceType(b.squares[squareIndex])
+			// TODO: Change string concatenation to direct buffer write
 			notation := " "
-			switch pieceType {
-			case PAWN:
-				notation = "p"
-			case KNIGHT:
-				notation = "n"
-			case BISHOP:
-				notation = "b"
-			case ROOK:
-				notation = "r"
-			case QUEEN:
-				notation = "q"
-			case KING:
-				notation = "k"
-			}
-			if colour == WHITE {
-				notation = strings.ToUpper(notation)
-			}
+			notation += PieceToNotation(b.squares[squareIndex])
 			notation += "|"
 			result.Write([]byte(notation))
 		}
