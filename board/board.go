@@ -118,7 +118,7 @@ func PieceFromNotation(symbol rune) int {
 }
 
 func PieceToNotation(piece int) string {
-	notation := "*"
+	notation := " "
 	colour := GetColour(piece)
 	pieceType := GetPieceType(piece)
 	switch pieceType {
@@ -416,7 +416,7 @@ func MakeMove(b *Board, move Move) {
 		castling: b.castling,
 	}
 
-	b.ep = -1
+	resetEp := true
 
 	movedPiece := GetPieceType(b.squares[move.from])
 
@@ -427,6 +427,7 @@ func MakeMove(b *Board, move Move) {
 			b.squares[capturedSquare] = EMPTY
 		} else if offset := move.to - move.from; offset == 32 || offset == -32 {
 			b.ep = move.from + offset/2
+			resetEp = false
 		}
 	} else if movedPiece == KING {
 		if GetColour(b.squares[move.from]) == WHITE {
@@ -464,6 +465,10 @@ func MakeMove(b *Board, move Move) {
 			}
 		}
 
+	}
+
+	if resetEp {
+		b.ep = -1
 	}
 
 	b.moveHistory = append(b.moveHistory, undo)
@@ -685,8 +690,7 @@ func (b *Board) String() string {
 
 		for squareIndex := rankStart; squareIndex < rankStart+8; squareIndex++ {
 			// TODO: Change string concatenation to direct buffer write
-			notation := " "
-			notation += PieceToNotation(b.squares[squareIndex])
+			notation := PieceToNotation(b.squares[squareIndex])
 			notation += "|"
 			result.Write([]byte(notation))
 		}
@@ -696,7 +700,7 @@ func (b *Board) String() string {
 
 	result.Write([]byte(separator))
 
-	otherStuff := fmt.Sprintf("White to move?: %t\nCastling (KQkq): %b\nEn passent: %d\nHalf move: %d", b.whiteToMove, b.castling, b.ep, b.halfMove)
+	otherStuff := fmt.Sprintf("White to move?: %t\nCastling (KQkq): %b\nEn passent: %X\nHalf move: %d", b.whiteToMove, b.castling, b.ep, b.halfMove)
 	result.Write([]byte(otherStuff))
 	return result.String()
 }

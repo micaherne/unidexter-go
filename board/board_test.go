@@ -172,7 +172,7 @@ func TestMakeMove(t *testing.T) {
 		t.Errorf("h8 should be empty after castling")
 	}
 
-	// Catling queens side
+	// Castling queens side
 	b = FromFEN("r3kbnr/pppb1ppp/2np4/4p3/4P2q/2NPBQ2/PPP2PPP/R3KBNR w KQkq -")
 
 	move = Move{0x04, 0x02}
@@ -190,7 +190,7 @@ func TestMakeMove(t *testing.T) {
 	}
 
 	// e.p.
-	b = FromFEN("r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6")
+	b = FromFEN("r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6 0 1")
 	move = Move{0x44, 0x53}
 	MakeMove(b, move)
 	if b.squares[0x53] != WHITE|PAWN {
