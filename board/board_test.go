@@ -98,9 +98,9 @@ func TestGenerateMoves(t *testing.T) {
 	}
 
 	// "Kiwipete" perft position
-	b = FromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
+	/* b = FromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
 	m = GeneratePieceMoves(b, 0x10)
-	fmt.Println(m)
+	fmt.Println(m)*/
 
 }
 
@@ -183,6 +183,12 @@ func TestMakeMove(t *testing.T) {
 		t.Errorf("captured should be black pawn")
 	}
 
+	b = FromFEN("r2k3r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/1R2K2R w K -")
+	MakeMove(b, Move{0x62, 0x42})
+	if b.ep != 0x52 {
+		t.Errorf("e.p. square should be c6 after c5c7, not %X", b.ep)
+	}
+
 	// castling
 	// white
 	correct := map[Move]int{
@@ -209,6 +215,32 @@ func TestMakeMove(t *testing.T) {
 		}
 	}
 
+	b = FromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/1R2K2R b Kkq -")
+	if b.castling != 11 {
+		t.Errorf("Kkq should be 11")
+	}
+	MakeMove(b, Move{0x74, 0x73})
+	if b.castling != 8 {
+		t.Errorf("Castling should be 8")
+	}
+
+}
+
+func TestMakeMoveFromNotation(t *testing.T) {
+	b := FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+
+	MakeMoveFromNotation(b, "e2e4")
+
+	if b.whiteToMove {
+		t.Errorf("Should be black to move")
+	}
+
+	if b.squares[0x34] != WHITE|PAWN {
+		t.Errorf("e4 should be white pawn")
+	}
+	if b.squares[0x14] != EMPTY {
+		t.Errorf("e2 should be empty")
+	}
 }
 
 func TestUndoMove(t *testing.T) {

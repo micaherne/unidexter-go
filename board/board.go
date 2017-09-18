@@ -327,19 +327,25 @@ func MakeMove(b *Board, move Move) {
 		castling: b.castling,
 	}
 
+	b.ep = -1
+
 	movedPiece := GetPieceType(b.squares[move.from])
 
-	if movedPiece == PAWN && move.to == b.ep && (move.to&0x0F != move.from&0x0F) {
-		capturedSquare := move.from&0xF0 | move.to&0x0F
-		undo.captured = b.squares[capturedSquare]
-		b.squares[capturedSquare] = EMPTY
+	if movedPiece == PAWN {
+		if move.to == b.ep && (move.to&0x0F != move.from&0x0F) {
+			capturedSquare := move.from&0xF0 | move.to&0x0F
+			undo.captured = b.squares[capturedSquare]
+			b.squares[capturedSquare] = EMPTY
+		} else if offset := move.to - move.from; offset == 32 || offset == -32 {
+			b.ep = move.from + offset/2
+		}
 	} else if movedPiece == KING {
 		if GetColour(b.squares[move.from]) == WHITE {
 			b.whiteKing = move.to
-			b.castling &= 0x0C
+			b.castling &= 0x03
 		} else {
 			b.blackKing = move.to
-			b.castling &= 0x03
+			b.castling &= 0x0C
 		}
 		offset := move.to - move.from
 
@@ -395,7 +401,6 @@ func UndoMove(b *Board) {
 	movedPiece := GetPieceType(b.squares[lastMove.from])
 
 	if movedPiece == PAWN && lastMove.to == lastMove.ep && (lastMove.to&0x0F != lastMove.from&0x0F) {
-		fmt.Println(lastMove)
 		capturedSquare := lastMove.from&0xF0 | lastMove.to&0x0F
 		b.squares[capturedSquare] = lastMove.captured
 		b.squares[lastMove.to] = EMPTY
@@ -417,6 +422,11 @@ func UndoMove(b *Board) {
 			b.squares[lastMove.from-2] = EMPTY
 		}
 	}
+}
+
+func MakeMoveFromNotation(b *Board, move string) {
+	m := Move{NotationToSquareIndex(move[:2]), NotationToSquareIndex(move[2:4])}
+	MakeMove(b, m)
 }
 
 func LegalSquareIndex(i int) bool {
