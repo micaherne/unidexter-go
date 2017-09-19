@@ -483,7 +483,23 @@ func MakeMove(b *Board, move Move) {
 				b.castling &= ^0x02
 			}
 		}
+	}
 
+	// Update castling if rook captured
+	if b.squares[move.to]&ROOK == ROOK {
+		if GetColour(b.squares[move.from]) == WHITE {
+			if move.to == 0x70 {
+				b.castling &= ^0x01
+			} else if move.to == 0x77 {
+				b.castling &= ^0x02
+			}
+		} else {
+			if move.to == 0x00 {
+				b.castling &= ^0x04
+			} else if move.to == 0x07 {
+				b.castling &= ^0x08
+			}
+		}
 	}
 
 	if resetEp {
@@ -542,7 +558,7 @@ func UndoMove(b *Board) {
 		} else if offset == -2 { // Queenside castling
 			// Rook
 			b.squares[lastMove.to-2] = b.squares[lastMove.from-1]
-			b.squares[lastMove.from-2] = EMPTY
+			b.squares[lastMove.from-1] = EMPTY
 		}
 	}
 }
@@ -580,6 +596,10 @@ func CastlingLegal(b *Board, i int, direction int) bool {
 		if b.squares[sq] != EMPTY {
 			return false
 		}
+	}
+
+	if IsCheck(b, GetColour(b.squares[i])) {
+		return false
 	}
 
 	// Check attacks on intermediate squares

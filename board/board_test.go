@@ -250,6 +250,18 @@ func TestMakeMove(t *testing.T) {
 		t.Errorf("Castling should be 8")
 	}
 
+	// Castling after rook capture
+	b = FromFEN("r3k2r/8/8/8/8/8/8/R3K2R w KQkq -")
+	MakeMove(b, Move{0x00, 0x70, EMPTY})
+	if b.castling != 10 {
+		t.Errorf("Castling should be %b not %b", 10, b.castling)
+	}
+	b = FromFEN("8/8/8/8/8/8/1k6/R3K3 b Q -")
+	MakeMove(b, Move{0x11, 0x00, EMPTY})
+	if b.castling != 0 {
+		t.Errorf("Castling should be %b not %b", 0, b.castling)
+	}
+
 }
 
 func TestMakeMoveFromNotation(t *testing.T) {
@@ -281,6 +293,10 @@ func TestUndoMove(t *testing.T) {
 		// e.p.
 		"r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6": []Move{
 			Move{0x44, 0x53, EMPTY},
+		},
+		// castling
+		"4k3/8/8/8/8/8/8/R3K3 w Q -": []Move{
+			Move{0x04, 0x02, EMPTY},
 		},
 	}
 
