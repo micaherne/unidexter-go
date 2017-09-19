@@ -51,6 +51,8 @@ var (
 	KNIGHTMOVES       = []int{NNE, ENE, ESE, SSE, SSW, WSW, WNW, NNW}
 )
 
+var PROMOTIONPIECES = []int{QUEEN, ROOK, BISHOP, KNIGHT}
+
 type Board struct {
 	squares     [128]int
 	whiteToMove bool
@@ -64,17 +66,19 @@ type Board struct {
 }
 
 type Move struct {
-	from int
-	to   int
+	from      int
+	to        int
+	promotion int
 }
 
 type MoveUndo struct {
-	from     int
-	to       int
-	captured int
-	ep       int
-	halfMove int
-	castling int
+	from        int
+	to          int
+	isPromotion bool // We don't care what the promoted piece is.
+	captured    int
+	ep          int
+	halfMove    int
+	castling    int
 }
 
 func (m Move) String() string {
@@ -296,10 +300,10 @@ func GeneratePieceMoves(b *Board, i int) []Move {
 			castleQueensideAllowed = b.castling&1 == 1
 		}
 		if castleKingsideAllowed && CastlingLegal(b, i, E) {
-			kingMoves = append(kingMoves, Move{i, i + 2})
+			kingMoves = append(kingMoves, Move{i, i + 2, EMPTY})
 		}
 		if castleQueensideAllowed && CastlingLegal(b, i, W) {
-			kingMoves = append(kingMoves, Move{i, i - 2})
+			kingMoves = append(kingMoves, Move{i, i - 2, EMPTY})
 		}
 		return kingMoves
 	}
@@ -314,7 +318,7 @@ func GenerateSingleMoves(b *Board, i int, offsets []int) []Move {
 	for _, offset := range offsets {
 		if toSquare := i + offset; LegalSquareIndex(toSquare) {
 			if b.squares[toSquare] == 0 || GetColour(b.squares[toSquare]) != ownColour {
-				result = append(result, Move{i, toSquare})
+				result = append(result, Move{i, toSquare, EMPTY})
 			}
 		}
 	}
@@ -327,9 +331,9 @@ func GenerateSlides(b *Board, i int, offsets []int) []Move {
 	for _, offset := range offsets {
 		for toSquare := i + offset; toSquare >= 0 && LegalSquareIndex(toSquare); toSquare += offset {
 			if b.squares[toSquare] == 0 {
-				result = append(result, Move{i, toSquare})
+				result = append(result, Move{i, toSquare, EMPTY})
 			} else if GetColour(b.squares[toSquare]) != ownColour {
-				result = append(result, Move{i, toSquare})
+				result = append(result, Move{i, toSquare, EMPTY})
 				break
 			} else {
 				break
@@ -347,7 +351,7 @@ func GeneratePawnMoves(b *Board, i int, forward int, captureOffsets []int, onHom
 	} else {
 		result = make([]Move, 0)
 		if toSquare := i + forward; toSquare&0x88 == 0 && b.squares[toSquare] == 0 {
-			result = append(result, Move{i, toSquare})
+			result = append(result, Move{i, toSquare, EMPTY})
 		}
 	}
 
@@ -357,7 +361,7 @@ func GeneratePawnMoves(b *Board, i int, forward int, captureOffsets []int, onHom
 			continue
 		}
 		if b.ep == toSquare {
-			result = append(result, Move{i, toSquare})
+			result = append(result, Move{i, toSquare, EMPTY})
 			continue
 		}
 		if b.squares[toSquare] == 0 {
@@ -366,8 +370,22 @@ func GeneratePawnMoves(b *Board, i int, forward int, captureOffsets []int, onHom
 		if GetColour(b.squares[toSquare]) == ownColour {
 			continue
 		}
-		result = append(result, Move{i, toSquare})
+		result = append(result, Move{i, toSquare, EMPTY})
 	}
+
+	// Convert moves to promotion moves where required.
+	// Loads start of array with queens, then rooks etc.
+	if ownColour == WHITE && i&0xF0 == 0x60 || ownColour == BLACK && i&0xF0 == 0x10 {
+		var promotions []Move
+		promotions = make([]Move, len(result)*4)
+		for pieceIndex, piece := range PROMOTIONPIECES {
+			for moveIndex, move := range result {
+				promotions[pieceIndex*len(result)+moveIndex] = Move{move.from, move.to, ownColour | piece}
+			}
+		}
+		return promotions
+	}
+
 	return result
 }
 
@@ -378,10 +396,10 @@ func GeneratePawnSlides(b *Board, i int, offset int) []Move {
 	result := make([]Move, 0)
 	toSquare := i + offset
 	if b.squares[toSquare] == 0 {
-		result = append(result, Move{i, toSquare})
+		result = append(result, Move{i, toSquare, EMPTY})
 		toSquare += offset
 		if b.squares[toSquare] == 0 {
-			result = append(result, Move{i, toSquare})
+			result = append(result, Move{i, toSquare, EMPTY})
 		}
 	}
 
@@ -408,12 +426,13 @@ func ColourToMove(b *Board) int {
 
 func MakeMove(b *Board, move Move) {
 	undo := MoveUndo{
-		from:     move.from,
-		to:       move.to,
-		captured: b.squares[move.to],
-		ep:       b.ep,
-		halfMove: b.halfMove,
-		castling: b.castling,
+		from:        move.from,
+		to:          move.to,
+		isPromotion: move.promotion != EMPTY,
+		captured:    b.squares[move.to],
+		ep:          b.ep,
+		halfMove:    b.halfMove,
+		castling:    b.castling,
 	}
 
 	resetEp := true
@@ -474,7 +493,12 @@ func MakeMove(b *Board, move Move) {
 	b.moveHistory = append(b.moveHistory, undo)
 
 	// Move the actual piece
-	b.squares[move.to] = b.squares[move.from]
+	if move.promotion == EMPTY { // Checking undo.promotion would be marginally quicker.
+		b.squares[move.to] = b.squares[move.from]
+	} else {
+		b.squares[move.to] = move.promotion
+	}
+
 	b.squares[move.from] = EMPTY
 	b.whiteToMove = !b.whiteToMove
 }
@@ -491,6 +515,11 @@ func UndoMove(b *Board) {
 	b.ep = lastMove.ep
 	b.halfMove = lastMove.halfMove
 	b.castling = lastMove.castling
+
+	// Promotion
+	if lastMove.isPromotion {
+		b.squares[lastMove.from] = PAWN | GetColour(b.squares[lastMove.from])
+	}
 
 	movedPiece := GetPieceType(b.squares[lastMove.from])
 
@@ -519,7 +548,8 @@ func UndoMove(b *Board) {
 }
 
 func MakeMoveFromNotation(b *Board, move string) {
-	m := Move{NotationToSquareIndex(move[:2]), NotationToSquareIndex(move[2:4])}
+	// TODO: Support promotions and castling
+	m := Move{NotationToSquareIndex(move[:2]), NotationToSquareIndex(move[2:4]), EMPTY}
 	MakeMove(b, m)
 }
 
@@ -583,14 +613,6 @@ func IsAttacked(b *Board, square int, colour int) bool {
 		}
 	}
 
-	// Pawns
-	for _, pawnMove := range pawnAttacks {
-		testSquare := square - pawnMove
-		if LegalSquareIndex(testSquare) && b.squares[testSquare] == colour|PAWN {
-			return true
-		}
-	}
-
 	// Rays
 	for _, dir := range DIAGONALS {
 		for i := 1; i < 8; i++ {
@@ -626,6 +648,29 @@ func IsAttacked(b *Board, square int, colour int) bool {
 			}
 		}
 	}
+
+	// Pawns
+	for _, pawnMove := range pawnAttacks {
+		testSquare := square - pawnMove
+		if LegalSquareIndex(testSquare) && b.squares[testSquare] == colour|PAWN {
+			return true
+		}
+	}
+
+	// King
+	var offset int
+	if colour == WHITE {
+		offset = square - b.whiteKing
+	} else {
+		offset = square - b.blackKing
+	}
+
+	for _, dir := range DIAGONALSANDLINES {
+		if offset == dir {
+			return true
+		}
+	}
+
 	return false
 }
 

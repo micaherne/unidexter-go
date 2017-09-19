@@ -117,6 +117,12 @@ func TestGenerateMoves(t *testing.T) {
 		t.Errorf("Invalid piece should return 0 moves")
 	}
 
+	b = FromFEN("8/8/8/8/8/8/6k1/4K2R w K - 0 1")
+	m = GenerateMoves(b)
+	// Note - 2 of these moves are illegal
+	if len(m) != 14 {
+		t.Errorf("Should be 14, not %d", len(m))
+	}
 	// "Kiwipete" perft position
 	/* b = FromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
 	m = GeneratePieceMoves(b, 0x10)
@@ -126,7 +132,7 @@ func TestGenerateMoves(t *testing.T) {
 
 func TestMakeMove(t *testing.T) {
 	b := FromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	move := Move{0x14, 0x34}
+	move := Move{0x14, 0x34, EMPTY}
 
 	MakeMove(b, move)
 
@@ -143,7 +149,7 @@ func TestMakeMove(t *testing.T) {
 
 	// Castling king side
 	b = FromFEN("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq -")
-	move = Move{0x04, 0x06}
+	move = Move{0x04, 0x06, EMPTY}
 
 	MakeMove(b, move)
 
@@ -159,7 +165,7 @@ func TestMakeMove(t *testing.T) {
 
 	b = FromFEN("r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq -")
 
-	move = Move{0x74, 0x76}
+	move = Move{0x74, 0x76, EMPTY}
 	MakeMove(b, move)
 
 	if b.squares[0x75] != BLACK|ROOK {
@@ -175,7 +181,7 @@ func TestMakeMove(t *testing.T) {
 	// Castling queens side
 	b = FromFEN("r3kbnr/pppb1ppp/2np4/4p3/4P2q/2NPBQ2/PPP2PPP/R3KBNR w KQkq -")
 
-	move = Move{0x04, 0x02}
+	move = Move{0x04, 0x02, EMPTY}
 
 	MakeMove(b, move)
 
@@ -191,7 +197,7 @@ func TestMakeMove(t *testing.T) {
 
 	// e.p.
 	b = FromFEN("r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6 0 1")
-	move = Move{0x44, 0x53}
+	move = Move{0x44, 0x53, EMPTY}
 	MakeMove(b, move)
 	if b.squares[0x53] != WHITE|PAWN {
 		t.Errorf("d6 should be a white pawn")
@@ -204,7 +210,7 @@ func TestMakeMove(t *testing.T) {
 	}
 
 	b = FromFEN("r2k3r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/1R2K2R w K -")
-	MakeMove(b, Move{0x62, 0x42})
+	MakeMove(b, Move{0x62, 0x42, EMPTY})
 	if b.ep != 0x52 {
 		t.Errorf("e.p. square should be c6 after c5c7, not %X", b.ep)
 	}
@@ -212,8 +218,8 @@ func TestMakeMove(t *testing.T) {
 	// castling
 	// white
 	correct := map[Move]int{
-		{0x00, 0x10}: 0x0B,
-		{0x07, 0x37}: 0x07,
+		{0x00, 0x10, EMPTY}: 0x0B,
+		{0x07, 0x37, EMPTY}: 0x07,
 	}
 	for move, castling := range correct {
 		b = FromFEN("r3k2r/8/8/8/8/8/8/R3K2R w KQkq -")
@@ -224,8 +230,8 @@ func TestMakeMove(t *testing.T) {
 	}
 	// black
 	correct = map[Move]int{
-		{0x70, 0x60}: 0x0E,
-		{0x77, 0x37}: 0x0D,
+		{0x70, 0x60, EMPTY}: 0x0E,
+		{0x77, 0x37, EMPTY}: 0x0D,
 	}
 	for move, castling := range correct {
 		b = FromFEN("r3k2r/8/8/8/8/8/8/R3K2R b KQkq -")
@@ -239,7 +245,7 @@ func TestMakeMove(t *testing.T) {
 	if b.castling != 11 {
 		t.Errorf("Kkq should be 11")
 	}
-	MakeMove(b, Move{0x74, 0x73})
+	MakeMove(b, Move{0x74, 0x73, EMPTY})
 	if b.castling != 8 {
 		t.Errorf("Castling should be 8")
 	}
@@ -266,15 +272,15 @@ func TestMakeMoveFromNotation(t *testing.T) {
 func TestUndoMove(t *testing.T) {
 	tests := map[string][]Move{
 		"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1": []Move{
-			Move{0x14, 0x34},
-			Move{0x64, 0x44},
+			Move{0x14, 0x34, EMPTY},
+			Move{0x64, 0x44, EMPTY},
 		},
 		"r1bqk1nr/pppp1ppp/2n5/1Bb1p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq -": []Move{
-			Move{0x04, 0x06},
+			Move{0x04, 0x06, EMPTY},
 		},
 		// e.p.
 		"r1bqk1nr/ppp2ppp/2n5/1BbpP3/8/5N2/PPPP1PPP/RNBQK2R w KQkq d6": []Move{
-			Move{0x44, 0x53},
+			Move{0x44, 0x53, EMPTY},
 		},
 	}
 
@@ -306,6 +312,10 @@ func TestIsAttacked(t *testing.T) {
 	}
 	if !IsAttacked(b, 0x07, BLACK) {
 		t.Error("h1 is attacked by black")
+	}
+	b = FromFEN("8/8/8/8/8/8/6k1/4K2R w K -")
+	if !IsAttacked(b, 0x06, BLACK) {
+		t.Error("g1 is attacked by black")
 	}
 }
 
