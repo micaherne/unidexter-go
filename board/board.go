@@ -563,9 +563,18 @@ func UndoMove(b *Board) {
 	}
 }
 
+// MakeMoveFromNotation makes the given move. This currently only supports UCI
+// move format, so castling is, for example, e1g1.
 func MakeMoveFromNotation(b *Board, move string) {
 	// TODO: Support promotions and castling
 	m := Move{NotationToSquareIndex(move[:2]), NotationToSquareIndex(move[2:4]), EMPTY}
+	if len(move) > 4 {
+		promotionPiece := PieceFromNotation(rune(move[4]))
+		if b.whiteToMove {
+			promotionPiece |= WHITE
+		}
+		m.promotion = promotionPiece
+	}
 	MakeMove(b, m)
 }
 

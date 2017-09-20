@@ -279,6 +279,12 @@ func TestMakeMoveFromNotation(t *testing.T) {
 	if b.squares[0x14] != EMPTY {
 		t.Errorf("e2 should be empty")
 	}
+
+	b = FromFEN("4k3/P7/8/8/8/8/8/4K3 w - -")
+	MakeMoveFromNotation(b, "a7a8Q")
+	if b.squares[0x70] != WHITE|QUEEN {
+		t.Errorf("a8 should be white queen")
+	}
 }
 
 func TestUndoMove(t *testing.T) {
