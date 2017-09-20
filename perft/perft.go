@@ -6,6 +6,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/micaherne/unidexter-go/board"
 )
@@ -21,10 +22,12 @@ func main() {
 	suite := GetPerftsuite()
 	pass := 0
 	fail := 0
+	max := 6
 	for fen, counts := range suite {
+		start := time.Now()
 		fmt.Println("\n" + fen)
 		b := board.FromFEN(fen)
-		for i := 1; i < 6; i++ {
+		for i := 1; i <= max && i <= len(counts); i++ {
 			p := perft(b, i)
 
 			if p == counts[i-1] {
@@ -36,7 +39,7 @@ func main() {
 			}
 			fmt.Printf("Perft(%d). Expected %d, got %d\n", i, counts[i-1], p)
 		}
-
+		fmt.Printf("Time taken: %s", time.Since(start))
 	}
 
 	fmt.Printf("\nPass: %d, Fail: %d", pass, fail)
