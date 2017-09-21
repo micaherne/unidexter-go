@@ -83,7 +83,7 @@ func main() {
 
 			case "go":
 				// TODO: Start calculating
-				bestMove := board.Negamax(b, 4)
+				bestMove := board.NegamaxAlphaBeta(b, 5)
 				fmt.Printf("bestmove %s\n", bestMove)
 				// TODO: What if we don't find a decent move?
 			case "stop":
