@@ -1,5 +1,7 @@
 package board
 
+import "fmt"
+
 type BestMove struct {
 	Move Move
 }
@@ -37,6 +39,7 @@ func Negamax(b *Board, depth int) Move {
 			continue
 		}
 
+		fmt.Printf("info currmove %s\n", move)
 		MakeMove(b, move)
 		score := -negamaxInternal(b, depth-1, bestMove)
 		UndoMove(b)
