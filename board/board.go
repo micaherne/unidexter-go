@@ -82,7 +82,11 @@ type MoveUndo struct {
 }
 
 func (m Move) String() string {
-	return SquareIndexToNotation(m.from) + SquareIndexToNotation(m.to)
+	result := SquareIndexToNotation(m.from) + SquareIndexToNotation(m.to)
+	if m.promotion != 0 {
+		result += PieceToNotation(m.promotion)
+	}
+	return result
 }
 
 const InitialPositionFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
