@@ -63,6 +63,7 @@ type Board struct {
 	fullMove    int
 	halfMove    int
 	moveHistory []MoveUndo
+	zobristKey  uint64
 }
 
 type Move struct {

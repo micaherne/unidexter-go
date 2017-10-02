@@ -19,6 +19,8 @@ func main() {
 	var b *board.Board
 	reader := bufio.NewReader(os.Stdin)
 
+	board.InitZobristKeys()
+
 	go func(reader io.Reader) {
 		scanner := bufio.NewScanner(reader)
 		for scanner.Scan() {
