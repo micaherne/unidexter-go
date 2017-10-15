@@ -11,12 +11,6 @@ import (
 	"github.com/micaherne/unidexter-go/board"
 )
 
-func mainBim() {
-	b := board.FromFEN("8/8/8/8/8/8/1k6/R3K3 b Q - 0 1")
-	d := divide(b, 2)
-	fmt.Println(d)
-}
-
 func main() {
 
 	suite := GetPerftsuite()
